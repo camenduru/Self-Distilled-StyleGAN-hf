@@ -1,5 +1,5 @@
 ---
-title: Self Distilled StyleGAN
+title: Self-Distilled StyleGAN
 emoji: 🐨
 colorFrom: indigo
 colorTo: red
