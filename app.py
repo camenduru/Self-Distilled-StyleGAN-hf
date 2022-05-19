@@ -16,9 +16,11 @@ from huggingface_hub import hf_hub_download
 
 sys.path.insert(0, 'stylegan3')
 
-ORIGINAL_REPO_URL = 'https://github.com/self-distilled-stylegan/self-distilled-internet-photos'
 TITLE = 'Self-Distilled StyleGAN'
-DESCRIPTION = f'This is a demo for models provided in {ORIGINAL_REPO_URL}.'
+DESCRIPTION = '''This is an unofficial demo for models provided in https://github.com/self-distilled-stylegan/self-distilled-internet-photos.
+
+Expected execution time on Hugging Face Spaces: 2s
+'''
 SAMPLE_IMAGE_DIR = 'https://huggingface.co/spaces/hysts/Self-Distilled-StyleGAN/resolve/main/samples'
 ARTICLE = f'''## Generated images
 - truncation: 0.7
@@ -50,6 +52,8 @@ ARTICLE = f'''## Generated images
 - size: 512x512
 - seed: 0-99
 ![Parrots]({SAMPLE_IMAGE_DIR}/parrots.jpg)
+
+<center><img src="https://visitor-badge.glitch.me/badge?page_id=hysts.self-distilled-stylegan" alt="visitor badge"/></center>
 '''
 
 TOKEN = os.environ['TOKEN']
