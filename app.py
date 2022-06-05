@@ -3,149 +3,125 @@
 from __future__ import annotations
 
 import argparse
-import functools
-import os
-import pickle
-import sys
 
 import gradio as gr
 import numpy as np
-import torch
-import torch.nn as nn
-from huggingface_hub import hf_hub_download
 
-sys.path.insert(0, 'stylegan3')
+from model import Model
 
-TITLE = 'Self-Distilled StyleGAN'
-DESCRIPTION = '''This is an unofficial demo for models provided in https://github.com/self-distilled-stylegan/self-distilled-internet-photos.
+TITLE = '# Self-Distilled StyleGAN'
+DESCRIPTION = '''This is an unofficial demo for [https://github.com/self-distilled-stylegan/self-distilled-internet-photos](https://github.com/self-distilled-stylegan/self-distilled-internet-photos).
 
-Expected execution time on Hugging Face Spaces: 2s
-'''
-SAMPLE_IMAGE_DIR = 'https://huggingface.co/spaces/hysts/Self-Distilled-StyleGAN/resolve/main/samples'
-ARTICLE = f'''## Generated images
-- truncation: 0.7
-### Dogs
-- size: 1024x1024
-- seed: 0-99
-![Dogs]({SAMPLE_IMAGE_DIR}/dogs.jpg)
-### Elephants
-- size: 512x512
-- seed: 0-99
-![Elephants]({SAMPLE_IMAGE_DIR}/elephants.jpg)
-### Horses
-- size: 256x256
-- seed: 0-99
-![Horses]({SAMPLE_IMAGE_DIR}/horses.jpg)
-### Bicycles
-- size: 256x256
-- seed: 0-99
-![Bicycles]({SAMPLE_IMAGE_DIR}/bicycles.jpg)
-### Lions
-- size: 512x512
-- seed: 0-99
-![Lions]({SAMPLE_IMAGE_DIR}/lions.jpg)
-### Giraffes
-- size: 512x512
-- seed: 0-99
-![Giraffes]({SAMPLE_IMAGE_DIR}/giraffes.jpg)
-### Parrots
-- size: 512x512
-- seed: 0-99
-![Parrots]({SAMPLE_IMAGE_DIR}/parrots.jpg)
-
-<center><img src="https://visitor-badge.glitch.me/badge?page_id=hysts.self-distilled-stylegan" alt="visitor badge"/></center>
-'''
-
-TOKEN = os.environ['TOKEN']
+Expected execution time on Hugging Face Spaces: 2s'''
+FOOTER = '<img id="visitor-badge" src="https://visitor-badge.glitch.me/badge?page_id=hysts.self-distilled-stylegan" alt="visitor badge" />'
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', type=str, default='cpu')
     parser.add_argument('--theme', type=str)
-    parser.add_argument('--live', action='store_true')
     parser.add_argument('--share', action='store_true')
     parser.add_argument('--port', type=int)
     parser.add_argument('--disable-queue',
                         dest='enable_queue',
                         action='store_false')
-    parser.add_argument('--allow-flagging', type=str, default='never')
     return parser.parse_args()
 
 
-def generate_z(z_dim: int, seed: int, device: torch.device) -> torch.Tensor:
-    return torch.from_numpy(np.random.RandomState(seed).randn(
-        1, z_dim)).to(device).float()
+def get_sample_image_url(model_name: str) -> str:
+    sample_image_dir = 'https://huggingface.co/spaces/hysts/Self-Distilled-StyleGAN/resolve/main/samples'
+    return f'{sample_image_dir}/{model_name}.jpg'
 
 
-@torch.inference_mode()
-def generate_image(model_name: str, seed: int, truncation_psi: float,
-                   model_dict: dict[str, nn.Module],
-                   device: torch.device) -> np.ndarray:
-    model = model_dict[model_name]
-    seed = int(np.clip(seed, 0, np.iinfo(np.uint32).max))
-
-    z = generate_z(model.z_dim, seed, device)
-    label = torch.zeros([1, model.c_dim], device=device)
-
-    out = model(z, label, truncation_psi=truncation_psi)
-    out = (out.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-    return out[0].cpu().numpy()
+def get_sample_image_markdown(model_name: str) -> str:
+    url = get_sample_image_url(model_name)
+    size = model_name.split('_')[-1]
+    return f'''
+    - size: {size}x{size}
+    - seed: 0-99
+    - truncation: 0.7
+    ![sample images]({url})'''
 
 
-def load_model(model_name: str, device: torch.device) -> nn.Module:
-    path = hf_hub_download('hysts/Self-Distilled-StyleGAN',
-                           f'models/{model_name}_pytorch.pkl',
-                           use_auth_token=TOKEN)
-    with open(path, 'rb') as f:
-        model = pickle.load(f)['G_ema']
-    model.eval()
-    model.to(device)
-    with torch.inference_mode():
-        z = torch.zeros((1, model.z_dim)).to(device)
-        label = torch.zeros([1, model.c_dim], device=device)
-        model(z, label)
-    return model
+def get_cluster_center_image_url(model_name: str) -> str:
+    cluster_center_image_dir = 'https://huggingface.co/spaces/hysts/Self-Distilled-StyleGAN/resolve/main/cluster_center_images'
+    return f'{cluster_center_image_dir}/{model_name}.jpg'
+
+
+def get_cluster_center_image_markdown(model_name: str) -> str:
+    url = get_cluster_center_image_url(model_name)
+    return f'![cluster center images]({url})'
 
 
 def main():
     args = parse_args()
-    device = torch.device(args.device)
 
-    model_names = [
-        'dogs_1024',
-        'elephants_512',
-        'horses_256',
-        'bicycles_256',
-        'lions_512',
-        'giraffes_512',
-        'parrots_512',
-    ]
+    model = Model(args.device)
 
-    model_dict = {name: load_model(name, device) for name in model_names}
+    with gr.Blocks(theme=args.theme, css='style.css') as demo:
+        gr.Markdown(TITLE)
+        gr.Markdown(DESCRIPTION)
 
-    func = functools.partial(generate_image,
-                             model_dict=model_dict,
-                             device=device)
-    func = functools.update_wrapper(func, generate_image)
+        with gr.Tabs():
+            with gr.TabItem('App'):
+                with gr.Row():
+                    with gr.Column():
+                        with gr.Group():
+                            model_name = gr.Dropdown(
+                                model.MODEL_NAMES,
+                                value=model.MODEL_NAMES[0],
+                                label='Model')
+                            seed = gr.Slider(0,
+                                             np.iinfo(np.uint32).max,
+                                             value=0,
+                                             step=1,
+                                             label='Seed')
+                            psi = gr.Slider(0,
+                                            2,
+                                            step=0.05,
+                                            value=0.7,
+                                            label='Truncation psi')
+                            multimodal_truncation = gr.Checkbox(
+                                label='Multi-modal Truncation', value=True)
+                            run_button = gr.Button('Run')
+                    with gr.Column():
+                        result = gr.Image(label='Result', elem_id='result')
+            with gr.TabItem('Sample Images'):
+                with gr.Row():
+                    model_name2 = gr.Dropdown(model.MODEL_NAMES,
+                                              value=model.MODEL_NAMES[0],
+                                              label='Model')
+                with gr.Row():
+                    text = get_sample_image_markdown(model_name2.value)
+                    sample_images = gr.Markdown(text)
+            with gr.TabItem('Cluster Center Images'):
+                with gr.Row():
+                    model_name3 = gr.Dropdown(model.MODEL_NAMES,
+                                              value=model.MODEL_NAMES[0],
+                                              label='Model')
+                with gr.Row():
+                    text = get_cluster_center_image_markdown(model_name3.value)
+                    cluster_center_images = gr.Markdown(value=text)
 
-    gr.Interface(
-        func,
-        [
-            gr.inputs.Radio(
-                model_names, type='value', default='dogs_1024', label='Model'),
-            gr.inputs.Number(default=0, label='Seed'),
-            gr.inputs.Slider(
-                0, 2, step=0.05, default=0.7, label='Truncation psi'),
-        ],
-        gr.outputs.Image(type='numpy', label='Output'),
-        title=TITLE,
-        description=DESCRIPTION,
-        article=ARTICLE,
-        theme=args.theme,
-        allow_flagging=args.allow_flagging,
-        live=args.live,
-    ).launch(
+        gr.Markdown(FOOTER)
+
+        model_name.change(fn=model.set_model, inputs=model_name, outputs=None)
+        run_button.click(fn=model.set_model_and_generate_image,
+                         inputs=[
+                             model_name,
+                             seed,
+                             psi,
+                             multimodal_truncation,
+                         ],
+                         outputs=result)
+        model_name2.change(fn=get_sample_image_markdown,
+                           inputs=model_name2,
+                           outputs=sample_images)
+        model_name3.change(fn=get_cluster_center_image_markdown,
+                           inputs=model_name3,
+                           outputs=cluster_center_images)
+
+    demo.launch(
         enable_queue=args.enable_queue,
         server_port=args.port,
         share=args.share,
