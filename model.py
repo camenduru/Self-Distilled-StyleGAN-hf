@@ -54,6 +54,11 @@ class Model:
         'giraffes_512',
         'parrots_512',
     ]
+    TRUNCATION_TYPES = [
+        'Multimodal (LPIPS)',
+        'Multimodal (L2)',
+        'Global',
+    ]
 
     def __init__(self, device: str | torch.device):
         self.device = torch.device(device)
@@ -193,12 +198,12 @@ class Model:
                        truncation_type: str) -> np.ndarray:
         z = self.generate_z(seed)
         ws = self.compute_w(z)
-        if truncation_type == 'Global':
+        if truncation_type == self.TRUNCATION_TYPES[2]:
             w0 = self.model.mapping.w_avg
         else:
-            if truncation_type == 'Multimodal (LPIPS)':
+            if truncation_type == self.TRUNCATION_TYPES[0]:
                 distance_type = 'lpips'
-            elif truncation_type == 'Multimodal (L2)':
+            elif truncation_type == self.TRUNCATION_TYPES[1]:
                 distance_type = 'l2'
             else:
                 raise ValueError

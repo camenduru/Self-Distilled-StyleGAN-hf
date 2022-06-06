@@ -82,12 +82,8 @@ def main():
                                             value=0.7,
                                             label='Truncation psi')
                             truncation_type = gr.Dropdown(
-                                [
-                                    'Multimodal (LPIPS)',
-                                    'Multimodal (L2)',
-                                    'Global',
-                                ],
-                                value='Multimodal (LPIPS)',
+                                model.TRUNCATION_TYPES,
+                                value=model.TRUNCATION_TYPES[0],
                                 label='Truncation Type')
                             run_button = gr.Button('Run')
                     with gr.Column():
