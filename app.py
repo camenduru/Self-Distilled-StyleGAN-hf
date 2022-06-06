@@ -53,6 +53,10 @@ def get_cluster_center_image_markdown(model_name: str) -> str:
     return f'![cluster center images]({url})'
 
 
+def update_distance_type(multimodal_truncation: bool) -> dict:
+    return gr.Dropdown.update(visible=multimodal_truncation)
+
+
 def main():
     args = parse_args()
 
@@ -83,6 +87,12 @@ def main():
                                             label='Truncation psi')
                             multimodal_truncation = gr.Checkbox(
                                 label='Multi-modal Truncation', value=True)
+                            distance_type = gr.Dropdown([
+                                'lpips',
+                                'l2',
+                            ],
+                                                        value='lpips',
+                                                        label='Distance Type')
                             run_button = gr.Button('Run')
                     with gr.Column():
                         result = gr.Image(label='Result', elem_id='result')
@@ -106,12 +116,16 @@ def main():
         gr.Markdown(FOOTER)
 
         model_name.change(fn=model.set_model, inputs=model_name, outputs=None)
+        multimodal_truncation.change(fn=update_distance_type,
+                                     inputs=multimodal_truncation,
+                                     outputs=distance_type)
         run_button.click(fn=model.set_model_and_generate_image,
                          inputs=[
                              model_name,
                              seed,
                              psi,
                              multimodal_truncation,
+                             distance_type,
                          ],
                          outputs=result)
         model_name2.change(fn=get_sample_image_markdown,
