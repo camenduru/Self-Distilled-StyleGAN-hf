@@ -190,15 +190,20 @@ class Model:
         return int(np.argmin(distances))
 
     def generate_image(self, seed: int, truncation_psi: float,
-                       multimodal_truncation: bool,
-                       distance_type: str) -> np.ndarray:
+                       truncation_type: str) -> np.ndarray:
         z = self.generate_z(seed)
         ws = self.compute_w(z)
-        if multimodal_truncation:
+        if truncation_type == 'Global':
+            w0 = self.model.mapping.w_avg
+        else:
+            if truncation_type == 'Multimodal (LPIPS)':
+                distance_type = 'lpips'
+            elif truncation_type == 'Multimodal (L2)':
+                distance_type = 'l2'
+            else:
+                raise ValueError
             cluster_index = self.find_nearest_cluster_center(ws, distance_type)
             w0 = self.cluster_centers[cluster_index]
-        else:
-            w0 = self.model.mapping.w_avg
         new_ws = self.truncate_w(w0, ws, truncation_psi)
         out = self.synthesize(new_ws)
         out = self.postprocess(out)
@@ -206,8 +211,6 @@ class Model:
 
     def set_model_and_generate_image(self, model_name: str, seed: int,
                                      truncation_psi: float,
-                                     multimodal_truncation: bool,
-                                     distance_type: str) -> np.ndarray:
+                                     truncation_type: str) -> np.ndarray:
         self.set_model(model_name)
-        return self.generate_image(seed, truncation_psi, multimodal_truncation,
-                                   distance_type)
+        return self.generate_image(seed, truncation_psi, truncation_type)
