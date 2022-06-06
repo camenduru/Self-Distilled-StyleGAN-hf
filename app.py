@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import pathlib
 
 import gradio as gr
 import numpy as np
@@ -28,18 +29,20 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_sample_image_url(model_name: str) -> str:
+def get_sample_image_url(name: str) -> str:
     sample_image_dir = 'https://huggingface.co/spaces/hysts/Self-Distilled-StyleGAN/resolve/main/samples'
-    return f'{sample_image_dir}/{model_name}.jpg'
+    return f'{sample_image_dir}/{name}.jpg'
 
 
-def get_sample_image_markdown(model_name: str) -> str:
-    url = get_sample_image_url(model_name)
-    size = model_name.split('_')[-1]
+def get_sample_image_markdown(name: str) -> str:
+    url = get_sample_image_url(name)
+    size = name.split('_')[1]
+    truncation_type = '_'.join(name.split('_')[2:])
     return f'''
     - size: {size}x{size}
     - seed: 0-99
     - truncation: 0.7
+    - truncation type: {truncation_type}
     ![sample images]({url})'''
 
 
@@ -88,14 +91,19 @@ def main():
                             run_button = gr.Button('Run')
                     with gr.Column():
                         result = gr.Image(label='Result', elem_id='result')
+
             with gr.TabItem('Sample Images'):
                 with gr.Row():
-                    model_name2 = gr.Dropdown(model.MODEL_NAMES,
-                                              value=model.MODEL_NAMES[0],
-                                              label='Model')
+                    paths = sorted(pathlib.Path('samples').glob('*'))
+                    names = [path.stem for path in paths]
+                    model_name2 = gr.Dropdown(
+                        names,
+                        value='dogs_1024_multimodal_lpips',
+                        label='Type')
                 with gr.Row():
                     text = get_sample_image_markdown(model_name2.value)
                     sample_images = gr.Markdown(text)
+
             with gr.TabItem('Cluster Center Images'):
                 with gr.Row():
                     model_name3 = gr.Dropdown(model.MODEL_NAMES,
