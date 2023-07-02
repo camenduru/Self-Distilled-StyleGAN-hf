@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import pathlib
 import pickle
 import sys
@@ -14,8 +13,6 @@ from huggingface_hub import hf_hub_download
 current_dir = pathlib.Path(__file__).parent
 submodule_dir = current_dir / 'stylegan3'
 sys.path.insert(0, submodule_dir.as_posix())
-
-HF_TOKEN = os.environ['HF_TOKEN']
 
 
 class LPIPS(lpips.LPIPS):
@@ -60,8 +57,9 @@ class Model:
         'Global',
     ]
 
-    def __init__(self, device: str | torch.device):
-        self.device = torch.device(device)
+    def __init__(self):
+        self.device = torch.device(
+            'cuda:0' if torch.cuda.is_available() else 'cpu')
         self._download_all_models()
         self._download_all_cluster_centers()
         self._download_all_cluster_center_images()
@@ -77,9 +75,8 @@ class Model:
         )
 
     def _load_model(self, model_name: str) -> nn.Module:
-        path = hf_hub_download('hysts/Self-Distilled-StyleGAN',
-                               f'models/{model_name}_pytorch.pkl',
-                               use_auth_token=HF_TOKEN)
+        path = hf_hub_download('public-data/Self-Distilled-StyleGAN',
+                               f'models/{model_name}_pytorch.pkl')
         with open(path, 'rb') as f:
             model = pickle.load(f)['G_ema']
         model.eval()
@@ -87,17 +84,15 @@ class Model:
         return model
 
     def _load_cluster_centers(self, model_name: str) -> torch.Tensor:
-        path = hf_hub_download('hysts/Self-Distilled-StyleGAN',
-                               f'cluster_centers/{model_name}.npy',
-                               use_auth_token=HF_TOKEN)
+        path = hf_hub_download('public-data/Self-Distilled-StyleGAN',
+                               f'cluster_centers/{model_name}.npy')
         centers = np.load(path)
         centers = torch.from_numpy(centers).float().to(self.device)
         return centers
 
     def _load_cluster_center_images(self, model_name: str) -> np.ndarray:
-        path = hf_hub_download('hysts/Self-Distilled-StyleGAN',
-                               f'cluster_center_images/{model_name}.npy',
-                               use_auth_token=HF_TOKEN)
+        path = hf_hub_download('public-data/Self-Distilled-StyleGAN',
+                               f'cluster_center_images/{model_name}.npy')
         return np.load(path)
 
     def set_model(self, model_name: str) -> None:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import pathlib
 
 import gradio as gr
@@ -10,23 +9,7 @@ import numpy as np
 
 from model import Model
 
-TITLE = '# Self-Distilled StyleGAN'
-DESCRIPTION = '''This is an unofficial demo for [https://github.com/self-distilled-stylegan/self-distilled-internet-photos](https://github.com/self-distilled-stylegan/self-distilled-internet-photos).
-
-Expected execution time on Hugging Face Spaces: 2s'''
-FOOTER = '<img id="visitor-badge" src="https://visitor-badge.glitch.me/badge?page_id=hysts.self-distilled-stylegan" alt="visitor badge" />'
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=str, default='cpu')
-    parser.add_argument('--theme', type=str)
-    parser.add_argument('--share', action='store_true')
-    parser.add_argument('--port', type=int)
-    parser.add_argument('--disable-queue',
-                        dest='enable_queue',
-                        action='store_false')
-    return parser.parse_args()
+DESCRIPTION = '# [Self-Distilled StyleGAN](https://github.com/self-distilled-stylegan/self-distilled-internet-photos)'
 
 
 def get_sample_image_url(name: str) -> str:
@@ -56,87 +39,71 @@ def get_cluster_center_image_markdown(model_name: str) -> str:
     return f'![cluster center images]({url})'
 
 
-def main():
-    args = parse_args()
+model = Model()
 
-    model = Model(args.device)
+with gr.Blocks(css='style.css') as demo:
+    gr.Markdown(DESCRIPTION)
 
-    with gr.Blocks(theme=args.theme, css='style.css') as demo:
-        gr.Markdown(TITLE)
-        gr.Markdown(DESCRIPTION)
+    with gr.Tabs():
+        with gr.TabItem('App'):
+            with gr.Row():
+                with gr.Column():
+                    with gr.Group():
+                        model_name = gr.Dropdown(label='Model',
+                                                 choices=model.MODEL_NAMES,
+                                                 value=model.MODEL_NAMES[0])
+                        seed = gr.Slider(label='Seed',
+                                         minimum=0,
+                                         maximum=np.iinfo(np.uint32).max,
+                                         step=1,
+                                         value=0)
+                        psi = gr.Slider(label='Truncation psi',
+                                        minimum=0,
+                                        maximum=2,
+                                        step=0.05,
+                                        value=0.7)
+                        truncation_type = gr.Dropdown(
+                            label='Truncation Type',
+                            choices=model.TRUNCATION_TYPES,
+                            value=model.TRUNCATION_TYPES[0])
+                        run_button = gr.Button('Run')
+                with gr.Column():
+                    result = gr.Image(label='Result', elem_id='result')
 
-        with gr.Tabs():
-            with gr.TabItem('App'):
-                with gr.Row():
-                    with gr.Column():
-                        with gr.Group():
-                            model_name = gr.Dropdown(
-                                model.MODEL_NAMES,
-                                value=model.MODEL_NAMES[0],
-                                label='Model')
-                            seed = gr.Slider(0,
-                                             np.iinfo(np.uint32).max,
-                                             value=0,
-                                             step=1,
-                                             label='Seed')
-                            psi = gr.Slider(0,
-                                            2,
-                                            step=0.05,
-                                            value=0.7,
-                                            label='Truncation psi')
-                            truncation_type = gr.Dropdown(
-                                model.TRUNCATION_TYPES,
-                                value=model.TRUNCATION_TYPES[0],
-                                label='Truncation Type')
-                            run_button = gr.Button('Run')
-                    with gr.Column():
-                        result = gr.Image(label='Result', elem_id='result')
+        with gr.TabItem('Sample Images'):
+            with gr.Row():
+                paths = sorted(pathlib.Path('samples').glob('*'))
+                names = [path.stem for path in paths]
+                model_name2 = gr.Dropdown(label='Type',
+                                          choices=names,
+                                          value='dogs_1024_multimodal_lpips')
+            with gr.Row():
+                text = get_sample_image_markdown(model_name2.value)
+                sample_images = gr.Markdown(text)
 
-            with gr.TabItem('Sample Images'):
-                with gr.Row():
-                    paths = sorted(pathlib.Path('samples').glob('*'))
-                    names = [path.stem for path in paths]
-                    model_name2 = gr.Dropdown(
-                        names,
-                        value='dogs_1024_multimodal_lpips',
-                        label='Type')
-                with gr.Row():
-                    text = get_sample_image_markdown(model_name2.value)
-                    sample_images = gr.Markdown(text)
+        with gr.TabItem('Cluster Center Images'):
+            with gr.Row():
+                model_name3 = gr.Dropdown(label='Model',
+                                          choices=model.MODEL_NAMES,
+                                          value=model.MODEL_NAMES[0])
+            with gr.Row():
+                text = get_cluster_center_image_markdown(model_name3.value)
+                cluster_center_images = gr.Markdown(value=text)
 
-            with gr.TabItem('Cluster Center Images'):
-                with gr.Row():
-                    model_name3 = gr.Dropdown(model.MODEL_NAMES,
-                                              value=model.MODEL_NAMES[0],
-                                              label='Model')
-                with gr.Row():
-                    text = get_cluster_center_image_markdown(model_name3.value)
-                    cluster_center_images = gr.Markdown(value=text)
+    model_name.change(fn=model.set_model, inputs=model_name)
+    run_button.click(fn=model.set_model_and_generate_image,
+                     inputs=[
+                         model_name,
+                         seed,
+                         psi,
+                         truncation_type,
+                     ],
+                     outputs=result)
+    model_name2.change(fn=get_sample_image_markdown,
+                       inputs=model_name2,
+                       outputs=sample_images)
+    model_name3.change(fn=get_cluster_center_image_markdown,
+                       inputs=model_name3,
+                       outputs=cluster_center_images)
 
-        gr.Markdown(FOOTER)
-
-        model_name.change(fn=model.set_model, inputs=model_name, outputs=None)
-        run_button.click(fn=model.set_model_and_generate_image,
-                         inputs=[
-                             model_name,
-                             seed,
-                             psi,
-                             truncation_type,
-                         ],
-                         outputs=result)
-        model_name2.change(fn=get_sample_image_markdown,
-                           inputs=model_name2,
-                           outputs=sample_images)
-        model_name3.change(fn=get_cluster_center_image_markdown,
-                           inputs=model_name3,
-                           outputs=cluster_center_images)
-
-    demo.launch(
-        enable_queue=args.enable_queue,
-        server_port=args.port,
-        share=args.share,
-    )
-
-
-if __name__ == '__main__':
-    main()
+demo.queue(max_size=10).launch()
